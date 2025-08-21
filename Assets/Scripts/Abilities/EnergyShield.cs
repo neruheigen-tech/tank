@@ -4,7 +4,7 @@ using UnityEngine;
 /// Implements the Saber's Energy Shield ability.
 /// Toggles a shield object and reduces movement speed when active.
 /// </summary>
-public class EnergyShield : MonoBehaviour
+public class EnergyShield : NetworkBehaviour
 {
     [Header("Dependencies")]
     [Tooltip("The GameObject representing the visual shield. This object should have a Collider.")]
@@ -16,7 +16,7 @@ public class EnergyShield : MonoBehaviour
     [Tooltip("The speed multiplier applied when the shield is active (e.g., 0.5 for 50% speed).")]
     [SerializeField, Range(0f, 1f)] private float speedModifier = 0.6f;
 
-    private bool isShieldActive = false;
+    public NetworkVariable<bool> IsShieldActive { get; } = new NetworkVariable<bool>();
     private float originalMoveSpeed;
 
     void Awake()
@@ -34,24 +34,41 @@ public class EnergyShield : MonoBehaviour
         }
     }
 
+    public override void OnNetworkSpawn()
+    {
+        IsShieldActive.OnValueChanged += OnShieldStateChanged;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        IsShieldActive.OnValueChanged -= OnShieldStateChanged;
+    }
+
+    private void OnShieldStateChanged(bool previousValue, bool newValue)
+    {
+        shieldVisualObject.SetActive(newValue);
+
+        // Movement speed change should only affect the owner
+        if (IsOwner)
+        {
+            if (newValue)
+            {
+                tankController.moveSpeed = originalMoveSpeed * speedModifier;
+                Debug.Log("SHIELD: Activated. Movement speed reduced.");
+            }
+            else
+            {
+                tankController.moveSpeed = originalMoveSpeed;
+                Debug.Log("SHIELD: Deactivated. Movement speed restored.");
+            }
+        }
+    }
+
     /// <summary>
-    /// Toggles the shield's state.
+    /// Toggles the shield's state. Should only be called on the server.
     /// </summary>
     public void Toggle()
     {
-        isShieldActive = !isShieldActive;
-
-        shieldVisualObject.SetActive(isShieldActive);
-
-        if (isShieldActive)
-        {
-            tankController.moveSpeed = originalMoveSpeed * speedModifier;
-            Debug.Log("SHIELD: Activated. Movement speed reduced.");
-        }
-        else
-        {
-            tankController.moveSpeed = originalMoveSpeed;
-            Debug.Log("SHIELD: Deactivated. Movement speed restored.");
-        }
+        IsShieldActive.Value = !IsShieldActive.Value;
     }
 }

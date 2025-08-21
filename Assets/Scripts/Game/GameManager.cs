@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// Manages the game state for Team Annihilation mode.
 /// This is a singleton to ensure only one instance exists.
 /// </summary>
-public class GameManager : MonoBehaviour
+public class GameManager : NetworkBehaviour
 {
     // Singleton instance
     public static GameManager Instance { get; private set; }
@@ -21,7 +21,10 @@ public class GameManager : MonoBehaviour
     public List<Transform> redTeamSpawns;
     public List<Transform> blueTeamSpawns;
 
-    private Dictionary<Team, int> teamScores;
+    private Dictionary<Team, int> teamScores; // This remains for server-side logic
+
+    public NetworkVariable<int> RedScore { get; } = new NetworkVariable<int>();
+    public NetworkVariable<int> BlueScore { get; } = new NetworkVariable<int>();
 
     void Awake()
     {
@@ -34,13 +37,15 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
         }
+    }
 
-        // Initialize scores
-        teamScores = new Dictionary<Team, int>
+    public override void OnNetworkSpawn()
+    {
+        if (IsServer)
         {
-            { Team.Red, 0 },
-            { Team.Blue, 0 }
-        };
+            RedScore.Value = 0;
+            BlueScore.Value = 0;
+        }
     }
 
     /// <summary>
@@ -50,14 +55,23 @@ public class GameManager : MonoBehaviour
     /// <param name="killerTank">The tank that got the kill.</param>
     public void ReportKill(Tank destroyedTank, Tank killerTank)
     {
+        if (!IsServer) return;
+
         // Award score if it wasn't a suicide or teamkill
         if (killerTank != null && killerTank.team != destroyedTank.team)
         {
-            teamScores[killerTank.team]++;
-            Debug.Log(killerTank.team + " scores! Current score: Red " + teamScores[Team.Red] + " - Blue " + teamScores[Team.Blue]);
+            if (killerTank.team == Team.Red)
+            {
+                RedScore.Value++;
+            }
+            else if (killerTank.team == Team.Blue)
+            {
+                BlueScore.Value++;
+            }
+            Debug.Log(killerTank.team + " scores! Current score: Red " + RedScore.Value + " - Blue " + BlueScore.Value);
 
             // Check for win condition
-            if (teamScores[killerTank.team] >= scoreToWin)
+            if (RedScore.Value >= scoreToWin || BlueScore.Value >= scoreToWin)
             {
                 EndMatch(killerTank.team);
                 return; // Stop further processing

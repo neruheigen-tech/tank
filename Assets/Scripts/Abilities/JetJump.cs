@@ -21,6 +21,9 @@ public class JetJump : MonoBehaviour
 
     private float lastJumpTimestamp = -99f;
 
+    public float CooldownRemaining => Mathf.Max(0f, (lastJumpTimestamp + cooldown) - Time.time);
+    public bool IsOnCooldown => CooldownRemaining > 0;
+
     void Awake()
     {
         if (tankRigidbody == null) tankRigidbody = GetComponentInParent<Rigidbody>();

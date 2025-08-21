@@ -26,6 +26,26 @@ public class UIManager : MonoBehaviour
     private MonoBehaviour localAbility1;
     private MonoBehaviour localAbility2;
 
+    void Start()
+    {
+        // Subscribe to score changes
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.RedScore.OnValueChanged += UpdateRedScore;
+            GameManager.Instance.BlueScore.OnValueChanged += UpdateBlueScore;
+        }
+    }
+
+    void OnDestroy()
+    {
+        // Unsubscribe to prevent memory leaks
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.RedScore.OnValueChanged -= UpdateRedScore;
+            GameManager.Instance.BlueScore.OnValueChanged -= UpdateBlueScore;
+        }
+    }
+
     void Update()
     {
         // Find the local player's tank if we haven't already.
@@ -37,13 +57,12 @@ public class UIManager : MonoBehaviour
             {
                 localPlayerTank = localPlayerObject.GetComponent<Tank>();
                 // This assumes abilities are on the same object or children
-                localPlayerObject.TryGetComponent(out localAbility1);
-                localPlayerObject.TryGetComponent(out localAbility2);
+                localPlayerTank.TryGetComponent(out localAbility1);
+                localPlayerTank.TryGetComponent(out localAbility2);
             }
         }
 
         UpdatePlayerHUD();
-        UpdateGameStateHUD();
     }
 
     private void UpdatePlayerHUD()
@@ -56,28 +75,59 @@ public class UIManager : MonoBehaviour
             healthText.text = localPlayerTank.currentHealth.Value.ToString("0");
         }
 
-        // In a real project, this would be cleaner, likely with an IAbility interface
-        // This is a conceptual demonstration of how cooldowns would be displayed.
-        if (ability1Icon != null && localAbility1 != null)
+        // Update Ability 1 UI
+        UpdateAbilityUI(localAbility1, ability1Icon, ability1CooldownText);
+
+        // Update Ability 2 UI
+        UpdateAbilityUI(localAbility2, ability2Icon, ability2CooldownText);
+    }
+
+    private void UpdateAbilityUI(MonoBehaviour ability, Image icon, TextMeshProUGUI cooldownText)
+    {
+        if (ability == null || icon == null || cooldownText == null) return;
+
+        icon.color = Color.white; // Default state
+        cooldownText.text = "";
+
+        switch (ability)
         {
-            // This part is highly speculative as it depends on the ability's implementation
-            // For now, let's assume we can't get cooldowns easily and just show icons.
+            case PowerLunge lunge:
+                if (lunge.IsOnCooldown)
+                {
+                    icon.color = Color.gray;
+                    cooldownText.text = lunge.CooldownRemaining.ToString("0.0");
+                }
+                break;
+            case JetJump jump:
+                if (jump.IsOnCooldown)
+                {
+                    icon.color = Color.gray;
+                    cooldownText.text = jump.CooldownRemaining.ToString("0.0");
+                }
+                break;
+            case SiegeMode siege:
+                if (siege.IsSieged.Value)
+                {
+                    icon.color = Color.red; // "Active" color
+                    cooldownText.text = "ON";
+                }
+                break;
+            case EnergyShield shield:
+                if (shield.IsShieldActive.Value)
+                {
+                    icon.color = Color.cyan; // "Active" color
+                }
+                break;
         }
     }
 
-    private void UpdateGameStateHUD()
+    private void UpdateRedScore(int previous, int current)
     {
-        if (GameManager.Instance == null) return;
+        if (redTeamScoreText != null) redTeamScoreText.text = "Red: " + current;
+    }
 
-        // This part is also conceptual as we don't have direct access to the score dictionary.
-        // A real implementation would have the GameManager expose scores via public properties or events.
-        if (redTeamScoreText != null)
-        {
-            // redTeamScoreText.text = GameManager.Instance.GetScore(Team.Red).ToString();
-        }
-        if (blueTeamScoreText != null)
-        {
-            // blueTeamScoreText.text = GameManager.Instance.GetScore(Team.Blue).ToString();
-        }
+    private void UpdateBlueScore(int previous, int current)
+    {
+        if (blueTeamScoreText != null) blueTeamScoreText.text = "Blue: " + current;
     }
 }

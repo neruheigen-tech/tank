@@ -4,7 +4,7 @@ using UnityEngine;
 /// Implements the Sniper's Siege Mode ability.
 /// When active, it disables tank movement in exchange for stat boosts.
 /// </summary>
-public class SiegeMode : MonoBehaviour
+public class SiegeMode : NetworkBehaviour
 {
     [Header("Dependencies")]
     [Tooltip("The controller to disable during siege mode.")]
@@ -16,7 +16,7 @@ public class SiegeMode : MonoBehaviour
     [Tooltip("The damage multiplier to apply when in siege mode.")]
     [SerializeField] private float damageMultiplier = 1.5f;
 
-    private bool isSieged = false;
+    public NetworkVariable<bool> IsSieged { get; } = new NetworkVariable<bool>();
     private float originalDamage;
 
     void Awake()
@@ -32,13 +32,13 @@ public class SiegeMode : MonoBehaviour
     }
 
     /// <summary>
-    /// Toggles Siege Mode on and off.
+    /// Toggles Siege Mode on and off. Should only be called on the server.
     /// </summary>
     public void Toggle()
     {
-        isSieged = !isSieged;
+        IsSieged.Value = !IsSieged.Value;
 
-        if (isSieged)
+        if (IsSieged.Value)
         {
             // Enter Siege Mode
             if (tankController != null)
